@@ -1,0 +1,36 @@
+outcomeId,outcomeName,conceptId,conceptName,domain
+5,AcuteMi,435243,Alcohol dependence,Condition
+5,AcuteMi,432867,Hyperlipidemia,Condition
+5,AcuteMi,316866,Hypertensive disorder,Condition
+5,AcuteMi,4152280,Major depressive disorder,Condition
+5,AcuteMi,433736,Obesity,Condition
+5,AcuteMi,437264,Tobacco dependence syndrome,Condition
+5,AcuteMi,201826,Type 2 diabetes mellitus,Condition
+6,Endocarditis,312723,Congenital heart disease,Condition
+6,Endocarditis,432250,Disorder due to infection,Condition
+6,Endocarditis,4281749,Heart valve disorder,Condition
+6,Endocarditis,192359,Renal failure syndrome,Condition
+4,HeartFailure,435243,Alcohol dependence,Condition
+4,HeartFailure,44784217,Cardiac arrhythmia,Condition
+4,HeartFailure,312723,Congenital heart disease,Condition
+4,HeartFailure,317576,Coronary arteriosclerosis,Condition
+4,HeartFailure,441589,Endocarditis,Condition
+4,HeartFailure,4281749,Heart valve disorder,Condition
+4,HeartFailure,316866,Hypertensive disorder,Condition
+4,HeartFailure,4329847,Myocardial infarction,Condition
+4,HeartFailure,314383,Myocarditis,Condition
+4,HeartFailure,433736,Obesity,Condition
+4,HeartFailure,313459,Sleep apnea,Condition
+4,HeartFailure,437264,Tobacco dependence syndrome,Condition
+4,HeartFailure,201826,Type 2 diabetes mellitus,Condition
+3,Stroke,374060,Acute ill-defined cerebrovascular disease,Condition
+3,Stroke,313217,Atrial fibrillation,Condition
+3,Stroke,319835,Congestive heart failure,Condition
+3,Stroke,317576,Coronary arteriosclerosis,Condition
+3,Stroke,432867,Hyperlipidemia,Condition
+3,Stroke,316866,Hypertensive disorder,Condition
+3,Stroke,4185932,Ischemic heart disease,Condition
+3,Stroke,192359,Renal failure syndrome,Condition
+3,Stroke,437264,Tobacco dependence syndrome,Condition
+3,Stroke,373503,Transient cerebral ischemia,Condition
+3,Stroke,201826,Type 2 diabetes mellitus,Condition
