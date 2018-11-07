@@ -66,5 +66,14 @@ createPlpObjects(connectionDetails = connectionDetails,
                  oracleTempSchema = oracleTempSchema,
                  outputFolder = outputFolder)
 
+evaluateOdal(studyFolder = studyFolder,
+             outcomeId = 3)
 
+evaluateOdal(studyFolder = studyFolder,
+             outcomeId = 4)
 
+evaluateOdal(studyFolder = studyFolder,
+             outcomeId = 5)
+
+evaluateOdal(studyFolder = studyFolder,
+             outcomeId = 6)
