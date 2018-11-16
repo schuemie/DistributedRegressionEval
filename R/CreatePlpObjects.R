@@ -46,7 +46,7 @@ createPlpObjects <- function(connectionDetails,
                              outputFolder) {
   pathToCsv <- system.file("settings", "KnownPredictors.csv", package = "DistributedRegressionEval")
   knownPredictors <- read.csv(pathToCsv)
-  covariateSettings <- FeatureExtraction::createCovariateSettings(useDemographicsAgeGroup = TRUE,
+  covariateSettings <- FeatureExtraction::createCovariateSettings(useDemographicsAge = TRUE,
                                                                   useDemographicsGender = TRUE,
                                                                   useConditionGroupEraLongTerm = TRUE,
                                                                   longTermStartDays = -365,
@@ -72,7 +72,7 @@ createPlpObjects <- function(connectionDetails,
                                                         covariateRef = plpData$covariateRef,
                                                         populationSize = plpData$metaData$populationSize,
                                                         minFraction = 0,
-                                                        normalize = TRUE,
+                                                        normalize = FALSE,
                                                         removeRedundancy = TRUE)
   covariates <- ff::as.ram(ff::as.ram(covariateData$covariates))
   covariateRef <- ff::as.ram(plpData$covariateRef)
@@ -108,6 +108,7 @@ createPlpObjects <- function(connectionDetails,
       population$outcomeCount <- 0
     }
     covariateIds <- covariateRef$covariateId[covariateRef$conceptId %in% knownPredictors$conceptId[knownPredictors$outcomeId == outcomeId]]
+    covariateIds <- c(covariateIds, 1002) # add age
     covariateSubset <- covariates[covariates$covariateId %in% covariateIds & covariates$rowId %in% population$rowId, ]
 
     # Sparse to dense:
@@ -117,7 +118,7 @@ createPlpObjects <- function(connectionDetails,
     rowIs <- match(covariateSubset$rowId, population$rowId)
     columnIs <- match(covariateSubset$covariateId, covariateIds)
     for (i in 1:nrow(covariateSubset)) {
-      m[rowIs[i], columnIs[i]] <- 1
+      m[rowIs[i], columnIs[i]] <- covariateSubset$covariateValue[i]
     }
     data <- as.data.frame(m)
     columnNames <- as.character(covariateRef$covariateName[match(covariateIds, covariateRef$covariateId)])

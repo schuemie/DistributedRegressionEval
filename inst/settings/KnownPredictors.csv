@@ -6,10 +6,12 @@ outcomeId,outcomeName,conceptId,conceptName,domain
 5,AcuteMi,433736,Obesity,Condition
 5,AcuteMi,437264,Tobacco dependence syndrome,Condition
 5,AcuteMi,201826,Type 2 diabetes mellitus,Condition
+5,AcuteMi,8532,FEMALE,Person
 6,Endocarditis,312723,Congenital heart disease,Condition
 6,Endocarditis,432250,Disorder due to infection,Condition
 6,Endocarditis,4281749,Heart valve disorder,Condition
 6,Endocarditis,192359,Renal failure syndrome,Condition
+6,Endocarditis,8532,FEMALE,Person
 4,HeartFailure,435243,Alcohol dependence,Condition
 4,HeartFailure,44784217,Cardiac arrhythmia,Condition
 4,HeartFailure,312723,Congenital heart disease,Condition
@@ -23,6 +25,7 @@ outcomeId,outcomeName,conceptId,conceptName,domain
 4,HeartFailure,313459,Sleep apnea,Condition
 4,HeartFailure,437264,Tobacco dependence syndrome,Condition
 4,HeartFailure,201826,Type 2 diabetes mellitus,Condition
+4,HeartFailure,8532,FEMALE,Person
 3,Stroke,374060,Acute ill-defined cerebrovascular disease,Condition
 3,Stroke,313217,Atrial fibrillation,Condition
 3,Stroke,319835,Congestive heart failure,Condition
@@ -34,3 +37,4 @@ outcomeId,outcomeName,conceptId,conceptName,domain
 3,Stroke,437264,Tobacco dependence syndrome,Condition
 3,Stroke,373503,Transient cerebral ischemia,Condition
 3,Stroke,201826,Type 2 diabetes mellitus,Condition
+3,Stroke,8532,FEMALE,Person

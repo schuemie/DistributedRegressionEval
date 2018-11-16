@@ -66,6 +66,8 @@ createPlpObjects(connectionDetails = connectionDetails,
                  oracleTempSchema = oracleTempSchema,
                  outputFolder = outputFolder)
 
+combineData(studyFolder = studyFolder, dropColumns = FALSE, sampleSize = 1e9)
+
 evaluateOdal(studyFolder = studyFolder,
              outcomeId = 3)
 

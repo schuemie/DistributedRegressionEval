@@ -14,7 +14,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-combineData <- function(studyFolder, sampleSize = 100000) {
+#' @export
+combineData <- function(studyFolder, dropColumns = FALSE, sampleSize = 100000) {
   # sampleSize = 10000
   folders <- list.files(studyFolder, include.dirs = TRUE)
   outcomeIds <- c(3, 4, 5, 6)
@@ -44,7 +45,15 @@ combineData <- function(studyFolder, sampleSize = 100000) {
        }
     }
     if (length(columnsToDrop) > 0) {
-      data <- data[, -which(colnames(data) %in% columnsToDrop)]
+      if (dropColumns) {
+        writeLines(paste("Dropping columns:", paste(columnsToDrop, collapse = ", ")))
+        data <- data[, -which(colnames(data) %in% columnsToDrop)]
+      } else {
+        writeLines(paste("Columns", paste(columnsToDrop, collapse = ", "), "are all zero in one or more DBs"))
+        for (i in 1:ncol(data)) {
+          data[is.na(data[, i]), i] <- 0
+        }
+      }
     }
     saveRDS(data, file.path(studyFolder, sprintf("data_o%s.rds", outcomeId)))
   }

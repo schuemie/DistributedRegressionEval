@@ -71,7 +71,7 @@ Sandwich = function(beta,X,Y,N){
 
 
 evaluateOdal <- function(studyFolder, outcomeId) {
-  # outcomeId <- 3
+  # outcomeId <- 4
   data <- readRDS(file.path(studyFolder, sprintf("data_o%s.rds", outcomeId)))
   localDb <- "ccae"
   otherDbs <- unique(data$database[data$database != localDb])
@@ -136,7 +136,7 @@ evaluateOdal <- function(studyFolder, outcomeId) {
   ODAL2 = optim(beta0,SL2,control = list(maxit = 10000,reltol = 1e-16), Xlocal = Xlocal, Ylocal = Ylocal, L = L, L2 = L2, beta0 = beta0)$par
 
   ####Variance####
-  var1 = Sandwich(ODAL1,Xlocal,Ylocal,(sum(nsite)+nlocal))
+  var1 = tryCatch(Sandwich(ODAL1,Xlocal,Ylocal,(sum(nsite)+nlocal)),error=function(err) matrix(data=NA,nrow=length(ODAL1),ncol=length(ODAL1)))
   var2 = Sandwich(ODAL2,Xlocal,Ylocal,(sum(nsite)+nlocal))
   var_ODAL1 = diag(var1)
   var_ODAL2 = diag(var2)
@@ -161,12 +161,12 @@ evaluateOdal <- function(studyFolder, outcomeId) {
   for (i in 1:K){
     Ysite <- data$y[data$database == otherDbs[i]]
     Xsite <- as.matrix(data[data$database == otherDbs[i], -which(colnames(data) %in% c("y", "database"))])
-    if (sum(Ysite) == 0){Beta[i,]=rep(NaN,p); VBeta[i,]=rep(NaN,p)}
-    else{
-      fit = summary(glm(Ysite~Xsite, family = "binomial"(link = "logit")))
-      Beta[i,] = fit$coefficients[,1]
-      VBeta[i,] = fit$coefficients[,2]^2
+    Beta[i,] = tryCatch(glm(Ysite~Xsite, family = "binomial"(link = "logit"))$coefficients[,1],error=function(err) rep(NA,length(betaall)))
+    if(sum(is.na(Beta[i,]))!=0){
+      Beta[i,] = rep(NA,length(betaall))
+      VBeta[i,] = rep(NA,length(betaall))
     }
+    else{ VBeta[i,] = summary(glm(Ysite~Xsite, family = "binomial"(link = "logit")))$coefficients[,2]^2}
   }
 
   Beta = rbind(Beta,beta0)
