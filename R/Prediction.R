@@ -70,9 +70,20 @@ Sandwich = function(beta,X,Y,N){
 }
 
 
-evaluateOdal <- function(studyFolder, outcomeId) {
-  # outcomeId <- 4
+evaluateOdal <- function(studyFolder, outcomeId, skipJmdc = FALSE, splitCcae = FALSE) {
+  # outcomeId <- 5
   data <- readRDS(file.path(studyFolder, sprintf("data_o%s.rds", outcomeId)))
+  if (skipJmdc) {
+    data <- data[data$database != "Jmdc", ]
+  }
+  if (splitCcae) {
+    data <- data[data$database == "ccae", ]
+    set.seed(123)
+    data$subsetId <- sample.int(5, nrow(data), replace = TRUE)
+    idx <- data$subsetId != 1
+    data$database[idx] <- paste(data$database[idx], data$subsetId[idx])
+    data$subsetId <- NULL
+  }
   localDb <- "ccae"
   otherDbs <- unique(data$database[data$database != localDb])
   Ylocal <- data$y[data$database == localDb]
@@ -185,9 +196,15 @@ evaluateOdal <- function(studyFolder, outcomeId) {
   pathToCsv <- system.file("settings", "CohortsToCreate.csv", package = "DistributedRegressionEval")
   cohortsToCreate <- read.csv(pathToCsv)
   outcomeName <- cohortsToCreate$name[cohortsToCreate$cohortId == outcomeId]
-
-  saveRDS(output, file.path(studyFolder, sprintf("output_%s.rds", outcomeName)))
+  postfix <- ""
+  if (skipJmdc) {
+    postfix <- "_noJmdc"
+  }
+  if (splitCcae) {
+    postfix <- "_splitCCae"
+  }
+  saveRDS(output, file.path(studyFolder, sprintf("output_%s%s.rds", outcomeName, postfix)))
 
   pretty <- rbind(beta0, ODAL1, ODAL2, betaall, betameta)
-  write.csv(pretty, file.path(studyFolder, sprintf("output_%s.csv", outcomeName)))
+  write.csv(pretty, file.path(studyFolder, sprintf("output_%s%s.csv", outcomeName, postfix)))
 }

@@ -65,16 +65,22 @@ createSummary <- function(studyFolder) {
   cohortsToCreate <- read.csv(pathToCsv)
   first <- TRUE
   summaryStats <- NULL
+  require(dplyr)
   for (outcomeId in outcomeIds) {
     data <- readRDS(file.path(studyFolder, sprintf("data_o%s.rds", outcomeId)))
+    means <- data %>% select(-y) %>% group_by(database) %>% summarize_all(mean)
+    counts <- data %>% group_by(database) %>% summarize(n = n(), outcomes = sum(y))
+    counts <- rename(counts, !!paste0("o_", outcomeId) := outcomes)
     if (first) {
-      summaryStats <- aggregate(y ~ database, data, length)
-      colnames(summaryStats)[2] <- "subjects"
+      summaryStats <- inner_join(means, counts)
       first <- FALSE
+    } else {
+      newCols <- names(means)[!(names(means) %in% names(summaryStats))]
+      summaryStats <- inner_join(summaryStats, means %>% select(database, newCols))
+      summaryStats <- inner_join(summaryStats, counts %>% select(-n))
     }
-    outcomeCount <- aggregate(y ~ database, data, sum)
-    colnames(outcomeCount)[2] <- as.character(cohortsToCreate$name[cohortsToCreate$cohortId == outcomeId])
-    summaryStats <- merge(summaryStats, outcomeCount)
   }
-  write.csv(summaryStats, file.path(studyFolder, "summaryStats.csv"), row.names = FALSE)
+  summaryStats <- summaryStats %>% select(database, n, o_3, o_4, o_5, o_6, everything())
+  write.csv(t(summaryStats), file.path(studyFolder, "Summary.csv"))
+
 }
