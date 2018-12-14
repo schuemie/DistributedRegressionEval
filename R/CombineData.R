@@ -23,7 +23,7 @@ combineData <- function(studyFolder, dropColumns = FALSE, sampleSize = 100000) {
     data <- data.frame()
     columnsToDrop <- c()
     for (folder in folders) {
-      if (dir.exists(file.path(studyFolder, folder))) {
+      if (dir.exists(file.path(studyFolder, folder)) && file.exists(file.path(studyFolder, folder, "data_o3.rds"))) {
         file <- file.path(studyFolder, folder, sprintf("data_o%s.rds", outcomeId))
         dataDb <- readRDS(file)
         if (nrow(dataDb) > sampleSize) {
@@ -82,5 +82,4 @@ createSummary <- function(studyFolder) {
   }
   summaryStats <- summaryStats %>% select(database, n, o_3, o_4, o_5, o_6, everything())
   write.csv(t(summaryStats), file.path(studyFolder, "Summary.csv"))
-
 }

@@ -69,22 +69,34 @@ Sandwich = function(beta,X,Y,N){
   return(out)
 }
 
+normalize <- function(data) {
+  for (i in 1:ncol(data)) {
+    if (is.numeric(data[, i]) && max(data[, i]) != 0) {
+      data[, i] <- data[, i] / max(data[, i])
+    }
+  }
+}
 
-evaluateOdal <- function(studyFolder, outcomeId, skipJmdc = FALSE, splitCcae = FALSE) {
-  # outcomeId <- 5
+
+evaluateOdal <- function(studyFolder, outcomeId, skipJmdc = FALSE, splitPanther = FALSE) {
+  writeLines(paste("Evaluating outcome", outcomeId))
+  # outcomeId <- 3
   data <- readRDS(file.path(studyFolder, sprintf("data_o%s.rds", outcomeId)))
+  normalize(data)
   if (skipJmdc) {
+    writeLines("Skipping JMDC")
     data <- data[data$database != "Jmdc", ]
   }
-  if (splitCcae) {
-    data <- data[data$database == "ccae", ]
+  if (splitPanther) {
+    writeLines("Splitting PanTher")
+    data <- data[data$database == "Panther", ]
     set.seed(123)
     data$subsetId <- sample.int(5, nrow(data), replace = TRUE)
     idx <- data$subsetId != 1
     data$database[idx] <- paste(data$database[idx], data$subsetId[idx])
     data$subsetId <- NULL
   }
-  localDb <- "ccae"
+  localDb <- "Panther"
   otherDbs <- unique(data$database[data$database != localDb])
   Ylocal <- data$y[data$database == localDb]
   Xlocal <- as.matrix(data[data$database == localDb, -which(colnames(data) %in% c("y", "database"))])
@@ -147,8 +159,10 @@ evaluateOdal <- function(studyFolder, outcomeId, skipJmdc = FALSE, splitCcae = F
   ODAL2 = optim(beta0,SL2,control = list(maxit = 10000,reltol = 1e-16), Xlocal = Xlocal, Ylocal = Ylocal, L = L, L2 = L2, beta0 = beta0)$par
 
   ####Variance####
-  var1 = tryCatch(Sandwich(ODAL1,Xlocal,Ylocal,(sum(nsite)+nlocal)),error=function(err) matrix(data=NA,nrow=length(ODAL1),ncol=length(ODAL1)))
-  var2 = Sandwich(ODAL2,Xlocal,Ylocal,(sum(nsite)+nlocal))
+  var1 = tryCatch(Sandwich(ODAL1,Xlocal,Ylocal,(sum(nsite)+nlocal)),
+                  error=function(err) matrix(data=NA,nrow=length(ODAL1),ncol=length(ODAL1)))
+  var2 = tryCatch(Sandwich(ODAL2,Xlocal,Ylocal,(sum(nsite)+nlocal)),
+                  error=function(err) matrix(data=NA,nrow=length(ODAL2),ncol=length(ODAL2)))
   var_ODAL1 = diag(var1)
   var_ODAL2 = diag(var2)
 
@@ -172,7 +186,7 @@ evaluateOdal <- function(studyFolder, outcomeId, skipJmdc = FALSE, splitCcae = F
   for (i in 1:K){
     Ysite <- data$y[data$database == otherDbs[i]]
     Xsite <- as.matrix(data[data$database == otherDbs[i], -which(colnames(data) %in% c("y", "database"))])
-    Beta[i,] = tryCatch(glm(Ysite~Xsite, family = "binomial"(link = "logit"))$coefficients[,1],error=function(err) rep(NA,length(betaall)))
+    Beta[i,] = tryCatch(glm(Ysite~Xsite, family = "binomial"(link = "logit"))$coefficients,error=function(err) rep(NA,length(betaall)))
     if(sum(is.na(Beta[i,]))!=0){
       Beta[i,] = rep(NA,length(betaall))
       VBeta[i,] = rep(NA,length(betaall))
@@ -187,11 +201,50 @@ evaluateOdal <- function(studyFolder, outcomeId, skipJmdc = FALSE, splitCcae = F
   betameta = apply(Beta/VBeta,2,function(x){sum(x, na.rm = T)})/apply(1/VBeta,2,function(x){sum(x, na.rm = T)})
   vmeta = 1/apply(1/VBeta,2,function(x){sum(x, na.rm = T)})
 
+  ######################################
+  # PART 9.. ODAL + Meta  #
+  #####################################
+
+  L = matrix(0,nrow = K,ncol = p) # Store the first order gradient (each is a p-dimensional vector)
+  L2 = matrix(0,nrow = K,ncol = p^2)# Store the second order gradient (each is a p*p matrix, we expand it into a vector)
+  betabar = betameta
+
+  nsite = rep(0,K)  #sample size in each site
+  for (i in 1:K){
+    Ysite <- data$y[data$database == otherDbs[i]]
+    Xsite <- as.matrix(data[data$database == otherDbs[i], -which(colnames(data) %in% c("y", "database"))])
+    nsite[i] = length(Ysite)
+    L[i,] = Lgradient(betabar,Xsite,Ysite)
+    L2[i,] = as.vector(Lgradient2(betabar,Xsite))
+  }
+  #Each L[i,] is transfered to the local site for ODAL1
+  # L[i,] and L2[i,] are transfered to the local site for ODAL2
+
+  #Calculate the global first order gradient L
+  L_local = Lgradient(betabar,Xlocal,Ylocal)
+  L = apply(rbind(diag(nsite)%*%L,L_local*nlocal),2,sum)/(sum(nsite)+nlocal)-L_local
+
+  #Calculate the global first order gradient L
+  L2_local = Lgradient2(betabar,Xlocal)
+  #Calculate the global second order gradient L2
+  L2 = apply(diag(c(nlocal,nsite))%*%rbind(as.vector(L2_local),L2),2,sum)/(sum(nsite)+nlocal)
+  L2 = matrix(L2,ncol = p, nrow = p)-L2_local
+  #Point estimation
+  ODAL_meta1 = optim(betabar,SL,control = list(maxit = 10000,reltol = 1e-16), Xlocal = Xlocal, Ylocal = Ylocal, L = L)$par
+  ODAL_meta2 = optim(betabar,SL2,control = list(maxit = 10000,reltol = 1e-16), Xlocal = Xlocal, Ylocal = Ylocal, L = L, L2 = L2, beta0 = beta0)$par
+
+  ####Variance####
+  var1 = tryCatch(Sandwich(ODAL_meta1,Xlocal,Ylocal,(sum(nsite)+nlocal)),
+                  error = function(err) matrix(data=NA,nrow=length(ODAL_meta1),ncol=length(ODAL_meta1)))
+  var2 = tryCatch(Sandwich(ODAL_meta2,Xlocal,Ylocal,(sum(nsite)+nlocal)),
+                  error = function(err) matrix(data=NA,nrow=length(ODAL_meta2),ncol=length(ODAL_meta2)))
+  var1_odalmeta = diag(var1)
+  var2_odalmeta = diag(var2)
 
   ######################################
-  # PART 9.. output  #
+  # PART 10.. output  #
   #####################################
-  output = list(beta0,v_beta0,ODAL1,var1,ODAL2,var2,betaall,v_betaall,betameta,vmeta)
+  output = list(beta0,v_beta0,ODAL1,var1,ODAL2,var2,betaall,v_betaall,betameta,vmeta,ODAL_meta1,var1_odalmeta,ODAL_meta2,var2_odalmeta)
 
   pathToCsv <- system.file("settings", "CohortsToCreate.csv", package = "DistributedRegressionEval")
   cohortsToCreate <- read.csv(pathToCsv)
@@ -200,11 +253,11 @@ evaluateOdal <- function(studyFolder, outcomeId, skipJmdc = FALSE, splitCcae = F
   if (skipJmdc) {
     postfix <- "_noJmdc"
   }
-  if (splitCcae) {
-    postfix <- "_splitCCae"
+  if (splitPanther) {
+    postfix <- "_splitPanther"
   }
   saveRDS(output, file.path(studyFolder, sprintf("output_%s%s.rds", outcomeName, postfix)))
 
-  pretty <- rbind(beta0, ODAL1, ODAL2, betaall, betameta)
+  pretty <- rbind(beta0, ODAL1, ODAL2, betaall, betameta, ODAL_meta1, ODAL_meta2)
   write.csv(pretty, file.path(studyFolder, sprintf("output_%s%s.csv", outcomeName, postfix)))
 }
