@@ -29,6 +29,16 @@ evaluateCox <- function(studyFolder) {
   for(localDb in Db.names){
     cat(localDb, '...\n')
     # coxph using local machine only
+    dataLocal <- data[data$database == localDb, ]
+    dataLocal$database <- NULL
+    dataRemote <- data[data$database != localDb, ]
+    database <- dataRemote$database
+    dataRemote$database <- NULL
+    dataRemote <- split(dataRemote, database)
+
+    # transfer data frame to list
+    dataCombined <- ODACO::combine_data(dataLocal, dataRemote, col_time = 1, col_event = 2)
+
     localCox <- ODACO::my_coxph(dataCombined$local_data)
     assign(paste0('localCox.', localDb), localCox)
   }
@@ -76,6 +86,7 @@ evaluateCox <- function(studyFolder) {
 
 
   # use pooled data, coxph() in pkg 'survival'
+  require(survival)
   pooledCox <- survival::coxph(Surv(dataCombined$all_data$t_surv, dataCombined$all_data$ind_event) ~ dataCombined$all_data$X)
 
   # comparison: DistCox (beta_tilde) obtains coef est better than using local only, closer to use pooled data
