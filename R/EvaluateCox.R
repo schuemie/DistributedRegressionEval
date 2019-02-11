@@ -28,6 +28,7 @@ evaluateCox <- function(studyFolder) {
   Db.names <- c('ccae',	'Jmdc',	'mdcd',	'optum',	'panther')
   for(localDb in Db.names){
     cat(localDb, '...\n')
+
     # coxph using local machine only
     dataLocal <- data[data$database == localDb, ]
     dataLocal$database <- NULL
@@ -41,6 +42,7 @@ evaluateCox <- function(studyFolder) {
 
     localCox <- ODACO::my_coxph(dataCombined$local_data)
     assign(paste0('localCox.', localDb), localCox)
+    assign(paste0("n.", localDb), nrow(dataLocal))
   }
   # inverse-variance (i.e. hessian) weighted est
   beta_avgCox <- (localCox.ccae$par*localCox.ccae$hessian +
