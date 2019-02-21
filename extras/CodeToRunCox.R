@@ -1,6 +1,6 @@
 library(DistributedRegressionEval)
 
-# install.packages("c:/temp/ODACO_1.1.tar.gz", repos = NULL, type = "source")
+# install.packages("c:/temp/ODACO_1.2.tar.gz", repos = NULL, type = "source")
 
 options(fftempdir = "r:/FFtemp")
 
@@ -87,4 +87,5 @@ createCoxObjects(connectionDetails = connectionDetails,
 
 combineCoxData(studyFolder = studyFolder, sampleSize = 1e9)
 
-evaluateCox(studyFolder = studyFolder)
+evaluateCox.prop(studyFolder = studyFolder)
+

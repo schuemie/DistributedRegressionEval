@@ -14,15 +14,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-
-
-evaluateCox <- function(studyFolder) {
-  data <- readRDS(file.path(studyFolder, "coxData.rds"))
-
-  # Reformat for ODACO:
-  data$status <- data$outcomeCount != 0
-  data <- data[, c("survivalTime", "status", "treatment" , "database")]
-
+evaluateCox <- function(# studyFolder,
+  data=dataProp){
   n.total <- nrow(data)
   Db.names <- c('ccae',	'Jmdc',	'mdcd',	'optum',	'panther')
 
@@ -88,7 +81,6 @@ evaluateCox <- function(studyFolder) {
 
 
   # use pooled data, coxph() in pkg 'survival'
-  library(survival)
   pooledCox <- survival::coxph(Surv(dataCombined$all_data$t_surv, dataCombined$all_data$ind_event) ~ dataCombined$all_data$X)
 
   # comparison: DistCox (beta_tilde) obtains coef est better than using local only, closer to use pooled data
@@ -134,7 +126,7 @@ evaluateCox <- function(studyFolder) {
                                     distCoxAvgInit.panther$beta_N,
                                     pooledCox$coef,
                                     n.panther))
-  write.csv(results, file.path(studyFolder, "results.csv"), row.names = FALSE)
+  # write.csv(results, file.path(studyFolder, "results.csv"), row.names = FALSE)
 
   # compare s.d. estimates
   Cox.sd <- data.frame(description = c("Local sd",
@@ -167,7 +159,54 @@ evaluateCox <- function(studyFolder) {
                                    distCoxAvgInit.panther$sigma_tilde,
                                    sqrt(diag(solve(distCoxAvgInit.panther$sol_N$hessian))/ n.total),
                                    summary(pooledCox)$coef[,3]))
-   write.csv(Cox.sd, file.path(studyFolder, "sd-results.csv"), row.names = FALSE)
-  # return(rbind(results, Cox.sd))
+  # write.csv(Cox.sd, file.path(studyFolder, "sd-results.csv"), row.names = FALSE)
+  return(rbind(results, Cox.sd))
+}
+
+
+evaluateCox.prop <- function(studyFolder,
+                             propSeq=seq(0.1,1,0.1),   # a proportion of data
+                             nrep=10                   # number of replicates
+){
+  library(survival)
+  data <- readRDS(file.path(studyFolder, "coxData.rds"))
+  Db.names <- c('ccae',	'Jmdc',	'mdcd',	'optum',	'panther')
+  # Reformat for ODACO:
+  data$status <- data$outcomeCount != 0
+  data <- data[, c("survivalTime", "status", "treatment" , "database")]
+  result.all <- array(NA, c(7+5, 5, nrep, length(propSeq)))
+
+  for(ip in seq_along(propSeq)){
+    for(ir in 1:nrep){
+      cat('sample prop = ', propSeq[ip], 'rep = ', ir, '\n')
+      # randomly take a proportion (10%, 20%, ..., 100%) of sample from each site
+      dataIdx <- c()
+      for(localDb in Db.names){
+        DbIdx <- which(data$database==localDb)
+
+        ## to guarantee for each site, the sampled patients have at least one event
+        ss <- 0
+        while(ss==0){
+          DbIdx.sample <- sample(DbIdx, size=round(length(DbIdx)*propSeq[ip]))
+          ss <- sum(data$status[DbIdx.sample])
+        }
+
+        dataIdx <- c(dataIdx,  DbIdx.sample)
+      }
+      dataProp <- data[dataIdx,]
+
+      result.prop <- evaluateCox(dataProp)
+      result.all[,,ir,ip] <- as.matrix(result.prop[,Db.names])
+    }
+  }
+
+  # save all result to R data
+  save(result.all, file=file.path(studyFolder, "result-all.rda"))
+
+  # write the result of 10% case (take mean of replicates) to file
+  res1 <- data.frame(description=result.prop$description,
+                     apply(result.all[,,,1], c(1,2), mean))
+  write.csv(res1, file.path(studyFolder, "result-10%.csv"), row.names = FALSE)
+
 }
 
