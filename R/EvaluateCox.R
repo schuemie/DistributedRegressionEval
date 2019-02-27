@@ -129,36 +129,36 @@ evaluateCox <- function(# studyFolder,
   # write.csv(results, file.path(studyFolder, "results.csv"), row.names = FALSE)
 
   # compare s.d. estimates
-  Cox.sd <- data.frame(description = c("Local sd",
-                                       "ODACO local init sd_tilde",
-                                       "ODACO average init sd_tilde",
-                                       "pooled sd_N",
-                                       "pooled sd_pkg"),
-                       ccae = c(sqrt(diag(solve(localCox.ccae$hessian))/ n.ccae),
-                                distCoxLocalInit.ccae$sigma_tilde,
-                                distCoxAvgInit.ccae$sigma_tilde,
-                                sqrt(diag(solve(distCoxAvgInit.ccae$sol_N$hessian))/ n.total),
-                                summary(pooledCox)$coef[,3]),
-                       Jmdc = c(sqrt(diag(solve(localCox.Jmdc$hessian))/ n.Jmdc),
-                                distCoxLocalInit.Jmdc$sigma_tilde,
-                                distCoxAvgInit.Jmdc$sigma_tilde,
-                                sqrt(diag(solve(distCoxAvgInit.Jmdc$sol_N$hessian))/ n.total),
-                                summary(pooledCox)$coef[,3]),
-                       mdcd = c(sqrt(diag(solve(localCox.mdcd$hessian))/ n.mdcd),
-                                distCoxLocalInit.mdcd$sigma_tilde,
-                                distCoxAvgInit.mdcd$sigma_tilde,
-                                sqrt(diag(solve(distCoxAvgInit.mdcd$sol_N$hessian))/ n.total),
-                                summary(pooledCox)$coef[,3]),
-                       optum = c(sqrt(diag(solve(localCox.optum$hessian))/ n.optum),
-                                 distCoxLocalInit.optum$sigma_tilde,
-                                 distCoxAvgInit.optum$sigma_tilde,
-                                 sqrt(diag(solve(distCoxAvgInit.optum$sol_N$hessian))/ n.total),
-                                 summary(pooledCox)$coef[,3]),
-                       panther = c(sqrt(diag(solve(localCox.panther$hessian))/ n.panther),
-                                   distCoxLocalInit.panther$sigma_tilde,
-                                   distCoxAvgInit.panther$sigma_tilde,
-                                   sqrt(diag(solve(distCoxAvgInit.panther$sol_N$hessian))/ n.total),
-                                   summary(pooledCox)$coef[,3]))
+  Cox.sd <- data.frame(description = c(#"Local sd",
+    "ODACO local init sd_tilde",
+    "ODACO average init sd_tilde",
+    #"pooled sd_N",
+    "pooled sd_pkg"),
+    ccae = c(#sqrt(diag(solve(localCox.ccae$hessian))/ n.ccae),
+      distCoxLocalInit.ccae$sigma_tilde,
+      distCoxAvgInit.ccae$sigma_tilde,
+      #sqrt(diag(solve(distCoxAvgInit.ccae$sol_N$hessian))/ n.total),
+      summary(pooledCox)$coef[,3]),
+    Jmdc = c(#sqrt(diag(solve(localCox.Jmdc$hessian))/ n.Jmdc),
+      distCoxLocalInit.Jmdc$sigma_tilde,
+      distCoxAvgInit.Jmdc$sigma_tilde,
+      #sqrt(diag(solve(distCoxAvgInit.Jmdc$sol_N$hessian))/ n.total),
+      summary(pooledCox)$coef[,3]),
+    mdcd = c(#sqrt(diag(solve(localCox.mdcd$hessian))/ n.mdcd),
+      distCoxLocalInit.mdcd$sigma_tilde,
+      distCoxAvgInit.mdcd$sigma_tilde,
+      #sqrt(diag(solve(distCoxAvgInit.mdcd$sol_N$hessian))/ n.total),
+      summary(pooledCox)$coef[,3]),
+    optum = c(#sqrt(diag(solve(localCox.optum$hessian))/ n.optum),
+      distCoxLocalInit.optum$sigma_tilde,
+      distCoxAvgInit.optum$sigma_tilde,
+      #sqrt(diag(solve(distCoxAvgInit.optum$sol_N$hessian))/ n.total),
+      summary(pooledCox)$coef[,3]),
+    panther = c(#sqrt(diag(solve(localCox.panther$hessian))/ n.panther),
+      distCoxLocalInit.panther$sigma_tilde,
+      distCoxAvgInit.panther$sigma_tilde,
+      #sqrt(diag(solve(distCoxAvgInit.panther$sol_N$hessian))/ n.total),
+      summary(pooledCox)$coef[,3]))
   # write.csv(Cox.sd, file.path(studyFolder, "sd-results.csv"), row.names = FALSE)
   return(rbind(results, Cox.sd))
 }
@@ -168,13 +168,12 @@ evaluateCox.prop <- function(studyFolder,
                              propSeq=seq(0.1,1,0.1),   # a proportion of data
                              nrep=10                   # number of replicates
 ){
-  library(survival)
   data <- readRDS(file.path(studyFolder, "coxData.rds"))
   Db.names <- c('ccae',	'Jmdc',	'mdcd',	'optum',	'panther')
   # Reformat for ODACO:
   data$status <- data$outcomeCount != 0
   data <- data[, c("survivalTime", "status", "treatment" , "database")]
-  result.all <- array(NA, c(7+5, 5, nrep, length(propSeq)))
+  result.all <- array(NA, c(7+5-2, 5, nrep, length(propSeq)))
 
   for(ip in seq_along(propSeq)){
     for(ir in 1:nrep){
@@ -209,4 +208,7 @@ evaluateCox.prop <- function(studyFolder,
   write.csv(res1, file.path(studyFolder, "result-10%.csv"), row.names = FALSE)
 
 }
+
+
+
 
