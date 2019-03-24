@@ -30,11 +30,11 @@ databaseName <- "MDCD"
 outputFolder <- file.path(studyFolder, "mdcd")
 
 # MDCR settings ----------------------------------------------------------------
-# cdmDatabaseSchema <- "cdm_truven_mdcr_v779.dbo"
-# cohortDatabaseSchema <- "scratch.dbo"
-# cohortTable <- "mschuemi_informed_priors_mdcr"
-# databaseName <- "MDCR"
-# outputFolder <- file.path(studyFolder, "mdcr")
+cdmDatabaseSchema <- "cdm_truven_mdcr_v779.dbo"
+cohortDatabaseSchema <- "scratch.dbo"
+cohortTable <- "mschuemi_informed_priors_mdcr"
+databaseName <- "MDCR"
+outputFolder <- file.path(studyFolder, "mdcr")
 
 # Optum settings ----------------------------------------------------------------
 cdmDatabaseSchema <- "cdm_optum_extended_dod_v774.dbo"
@@ -51,11 +51,11 @@ databaseName <- "Jmdc"
 outputFolder <- file.path(studyFolder, "Jmdc")
 
 # PanTher settings ----------------------------------------------------------------
-cdmDatabaseSchema <- "cdm_optum_panther_v776.dbo"
-cohortDatabaseSchema <- "scratch.dbo"
-cohortTable <- "mschuemi_informed_priors_panther"
-databaseName <- "Panther"
-outputFolder <- file.path(studyFolder, "Panther")
+# cdmDatabaseSchema <- "cdm_optum_panther_v776.dbo"
+# cohortDatabaseSchema <- "scratch.dbo"
+# cohortTable <- "mschuemi_informed_priors_panther"
+# databaseName <- "Panther"
+# outputFolder <- file.path(studyFolder, "Panther")
 
 
 createCohorts(connectionDetails = connectionDetails,
@@ -72,14 +72,14 @@ createPlpObjects(connectionDetails = connectionDetails,
                  oracleTempSchema = oracleTempSchema,
                  outputFolder = outputFolder)
 
-combineData(studyFolder = studyFolder, dropColumns = FALSE, sampleSize = 1e9)
+combineData(studyFolder = studyFolder, dropColumns = TRUE, sampleSize = 1e9)
 createSummary(studyFolder = studyFolder)
 
 for (outcomeId in 3:6) {
-  for (variant in c("skipJmdc", "splitPanther", "normal")) {
+  for (variant in c("skipJmdc", "splitCcae", "normal")) {
     evaluateOdal(studyFolder = studyFolder,
                  outcomeId = outcomeId,
                  skipJmdc = (variant == "skipJmdc"),
-                 splitPanther = (variant == "splitPanther"))
+                 splitCcae = (variant == "splitCcae"))
   }
 }

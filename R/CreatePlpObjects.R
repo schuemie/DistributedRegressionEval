@@ -46,28 +46,28 @@ createPlpObjects <- function(connectionDetails,
                              outputFolder) {
   pathToCsv <- system.file("settings", "KnownPredictors.csv", package = "DistributedRegressionEval")
   knownPredictors <- read.csv(pathToCsv)
-  covariateSettings <- FeatureExtraction::createCovariateSettings(useDemographicsAge = TRUE,
-                                                                  useDemographicsGender = TRUE,
-                                                                  useConditionGroupEraLongTerm = TRUE,
-                                                                  longTermStartDays = -365,
-                                                                  endDays = 0,
-                                                                  includedCovariateConceptIds = unique(knownPredictors$conceptId))
-  plpData <- PatientLevelPrediction::getPlpData(connectionDetails = connectionDetails,
-                                                cdmDatabaseSchema = cdmDatabaseSchema,
-                                                oracleTempSchema = oracleTempSchema,
-                                                cohortDatabaseSchema = cohortDatabaseSchema,
-                                                cohortTable = cohortTable,
-                                                cohortId = 102,
-                                                washoutPeriod = 365,
-                                                covariateSettings = covariateSettings,
-                                                outcomeDatabaseSchema = cohortDatabaseSchema,
-                                                outcomeTable = cohortTable,
-                                                outcomeIds = c(3, 4, 5, 6),
-                                                firstExposureOnly = TRUE)
+  # covariateSettings <- FeatureExtraction::createCovariateSettings(useDemographicsAge = TRUE,
+  #                                                                 useDemographicsGender = TRUE,
+  #                                                                 useConditionGroupEraLongTerm = TRUE,
+  #                                                                 longTermStartDays = -365,
+  #                                                                 endDays = 0,
+  #                                                                 includedCovariateConceptIds = unique(knownPredictors$conceptId))
+  # plpData <- PatientLevelPrediction::getPlpData(connectionDetails = connectionDetails,
+  #                                               cdmDatabaseSchema = cdmDatabaseSchema,
+  #                                               oracleTempSchema = oracleTempSchema,
+  #                                               cohortDatabaseSchema = cohortDatabaseSchema,
+  #                                               cohortTable = cohortTable,
+  #                                               cohortId = 102,
+  #                                               washoutPeriod = 365,
+  #                                               covariateSettings = covariateSettings,
+  #                                               outcomeDatabaseSchema = cohortDatabaseSchema,
+  #                                               outcomeTable = cohortTable,
+  #                                               outcomeIds = c(3, 4, 5, 6),
+  #                                               firstExposureOnly = TRUE)
+#
+#   PatientLevelPrediction::savePlpData(plpData, file.path(outputFolder, "plpData"))
 
-  PatientLevelPrediction::savePlpData(plpData, file.path(outputFolder, "plpData"))
-
-  # plpData <- PatientLevelPrediction::loadPlpData(file.path(outputFolder, "plpData"))
+  plpData <- PatientLevelPrediction::loadPlpData(file.path(outputFolder, "plpData"))
   covariateData <- FeatureExtraction::tidyCovariateData(covariates = plpData$covariates,
                                                         covariateRef = plpData$covariateRef,
                                                         populationSize = plpData$metaData$populationSize,
@@ -94,7 +94,7 @@ createPlpObjects <- function(connectionDetails,
                                                                 removeSubjectsWithPriorOutcome = TRUE)
     if (is.null(population)) {
       # population is set to null if there's no one with the outcome. Create study population with 'safe' outcome, then set
-      # otucomeCount to 0:
+      # outcomeCount to 0:
       population <- PatientLevelPrediction::createStudyPopulation(plpData,
                                                                   outcomeId = safeOutcomeId,
                                                                   includeAllOutcomes = FALSE,
@@ -125,6 +125,7 @@ createPlpObjects <- function(connectionDetails,
     columnNames <- gsub(" ", "_", gsub(".*: ", "", columnNames))
     colnames(data) <- columnNames
     data$y <- as.integer(population$outcomeCount != 0)
+    data$time <- population$survivalTime
 
     fileName <-  file.path(outputFolder, paste0("data_o", outcomeId, ".rds"))
     saveRDS(data, fileName)
