@@ -111,4 +111,26 @@ evaluateCox <- function(studyFolder, outcomeId) {
                             "pooled beta_pkg")
     write.csv(results, file.path(studyFolder, sprintf("output_%s.csv", localDb)))
   }
+
+  sd_avgCox <- sqrt(diag(solve((localCox.ccae$hessian*n.ccae+ localCox.Jmdc$hessian*n.Jmdc + localCox.mdcd$hessian*n.mdcd
+                                + localCox.optum$hessian*n.optum + localCox.mdcr$hessian*n.mdcr))))
+
+  for (localDb in Big.Db.names){
+    Cox.sd <- rbind(c(sqrt(diag(solve(get(paste0("localCox.", localDb))$hessian))/ get(paste0('n.', localDb)))),
+                    c(sd_avgCox),
+                    c(get(paste0("distCoxLocalInit.", localDb))$sigma_tilde),
+                    c(get(paste0("distCoxAvgInit.", localDb))$sigma_tilde),
+                    c(get(paste0("distCoxLocalInit.", localDb))$sigma_tilde2),
+                    c(get(paste0("distCoxAvgInit.", localDb))$sigma_tilde2),
+                    c(summary(pooledCox)$coef[,3]))
+    row.names(results) <- c("Local sd",
+                            "Average sd",
+                            "ODACO local init sd_tilde",
+                            "ODACO average init sd_tilde",
+                            "ODACO2 local init sd_tilde",
+                            "ODACO2 average init sd_tilde",
+                            "pooled sd_pkg")
+    write.csv(results, file.path(studyFolder, sprintf("sd_output_%s.csv", localDb)))
+  }
+
 }
