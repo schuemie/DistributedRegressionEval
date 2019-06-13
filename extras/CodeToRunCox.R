@@ -1,6 +1,6 @@
 library(DistributedRegressionEval)
 library(survival)
-# install.packages("c:/temp/ODACO_1.4.tar.gz", repos = NULL, type = "source")
+# install.packages("c:/temp/ODACO_1.5.tar.gz", repos = NULL, type = "source")
 
 options(fftempdir = "r:/FFtemp")
 

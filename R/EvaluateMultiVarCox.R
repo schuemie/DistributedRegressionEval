@@ -1,10 +1,14 @@
 evaluateCox <- function(studyFolder, outcomeId) {
   writeLines(paste("Evaluating outcome", outcomeId))
-  # outcomeId <- 3 # 3 = stroke
+  # outcomeId <- 5 # 3 = stroke, 5 = AMI
   data <- readRDS(file.path(studyFolder, sprintf("data_o%s.rds", outcomeId)))
-  data$age_in_years <- NULL
-  data$`gender_=_FEMALE` <- NULL
-  data$Major_depressive_disorder <- NULL
+
+  # Remove for stroke model:
+  if (outcomeId == 3) {
+    data$age_in_years <- NULL
+    data$`gender_=_FEMALE` <- NULL
+    data$Major_depressive_disorder <- NULL
+  }
 
   # Reformat for ODACO:
   data$status <- data$y != 0
@@ -123,14 +127,22 @@ evaluateCox <- function(studyFolder, outcomeId) {
                     c(get(paste0("distCoxLocalInit.", localDb))$sigma_tilde2),
                     c(get(paste0("distCoxAvgInit.", localDb))$sigma_tilde2),
                     c(summary(pooledCox)$coef[,3]))
-    row.names(results) <- c("Local sd",
-                            "Average sd",
-                            "ODACO local init sd_tilde",
-                            "ODACO average init sd_tilde",
-                            "ODACO2 local init sd_tilde",
-                            "ODACO2 average init sd_tilde",
-                            "pooled sd_pkg")
-    write.csv(results, file.path(studyFolder, sprintf("sd_output_%s.csv", localDb)))
+    row.names(Cox.sd) <- c("Local sd",
+                           "Average sd",
+                           "ODACO local init sd_tilde",
+                           "ODACO average init sd_tilde",
+                           "ODACO2 local init sd_tilde",
+                           "ODACO2 average init sd_tilde",
+                           "pooled sd_pkg")
+    write.csv(Cox.sd, file.path(studyFolder, sprintf("sd_output_%s.csv", localDb)))
+  }
+
+  for (localDb in Big.Db.names){
+    local.hess <- get(paste0("distCoxLocalInit.", localDb))$sol2$hessian
+    avg.hess  <- get(paste0("distCoxAvgInit.", localDb))$sol2$hessian
+    write.csv(rbind(local.hess, avg.hess),
+              file.path(studyFolder, sprintf("hessian_output_%s.csv", localDb)))
+
   }
 
 }
