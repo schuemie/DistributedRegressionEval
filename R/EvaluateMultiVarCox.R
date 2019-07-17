@@ -3,6 +3,7 @@ evaluateCox <- function(studyFolder, outcomeId) {
   # outcomeId <- 5 # 3 = stroke, 5 = AMI
   data <- readRDS(file.path(studyFolder, sprintf("data_o%s.rds", outcomeId)))
 
+
   # Remove for stroke model:
   if (outcomeId == 3) {
     data$age_in_years <- NULL
@@ -145,4 +146,11 @@ evaluateCox <- function(studyFolder, outcomeId) {
 
   }
 
+  Big.Db.names <- c('ccae', 'mdcd', 'optum', 'mdcr')
+  for(localDb in Big.Db.names){
+    dataLocal <- data[data$database == localDb, ]
+    n.subj <- nrow(dataLocal)
+    n.event <- sum(dataLocal$status)
+    cat(localDb, n.event, '/', n.subj,  '...\n')
+  }
 }
