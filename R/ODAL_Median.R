@@ -315,26 +315,18 @@ compare.methods = function(Xall, Yall, site){
 
 
 
-evaluateOdal <- function(studyFolder, outcomeId, skipJmdc = FALSE, splitCcae = FALSE) {
+evaluateOdal <- function(studyFolder, outcomeId, skipJmdc = FALSE, splitMdcr = FALSE) {
   writeLines(paste("Evaluating outcome", outcomeId))
-  # outcomeId <- 3 # 5 = AMI, 3 = stroke
+  skipJmdc <- TRUE
+  skipMdcr <- FALSE # Note: can only skip MDCR if also skipping JMDC
+  outcomeId <- 5 # 5 = AMI, 3 = stroke
   data <- readRDS(file.path(studyFolder, sprintf("data_o%s.rds", outcomeId)))
-  # normalize(data)
-  # if (skipJmdc) {
-  #   writeLines("Skipping JMDC")
-  #   data <- data[data$database != "Jmdc", ]
-  # }
-  # if (splitCcae) {
-  #   writeLines("Splitting CCAE")
-  #   data <- data[data$database == "ccae", ]
-  #   set.seed(123)
-  #   data$subsetId <- sample.int(5, nrow(data), replace = TRUE)
-  #   idx <- data$subsetId != 1
-  #   data$database[idx] <- paste(data$database[idx], data$subsetId[idx])
-  #   data$subsetId <- NULL
-  # }
-  # data$Alcohol_dependence <- NULL
-  # data$Major_depressive_disorder <- NULL
+
+  if (skipJmdc) {
+    writeLines("Skipping JMDC")
+    data <- data[data$database != "Jmdc", ]
+  }
+
   data$age_in_years <- NULL
   data$`gender_=_FEMALE` <- NULL
   data$time <- NULL
@@ -344,10 +336,11 @@ evaluateOdal <- function(studyFolder, outcomeId, skipJmdc = FALSE, splitCcae = F
   Xall <- as.matrix(data[, -which(colnames(data) %in% c("y", "database"))])
   site <- rep(0, nrow(data))
   # site[data$database == "Panther"] <- 1
-  site[data$database == "Jmdc"] <- 1
-  site[data$database == "mdcd"] <- 2
-  site[data$database == "optum"] <- 3
-  site[data$database == "mdcr"] <- 4
+
+  site[data$database == "mdcd"] <- 1
+  site[data$database == "optum"] <- 2
+  site[data$database == "mdcr"] <- 3
+  site[data$database == "Jmdc"] <- 4
   # out = compare.methods(Xall,Yall,site)
 
   # pathToCsv <- system.file("settings", "CohortsToCreate.csv", package = "DistributedRegressionEval")
@@ -368,18 +361,25 @@ evaluateOdal <- function(studyFolder, outcomeId, skipJmdc = FALSE, splitCcae = F
     if (i == 0) {
       siteName <- "ccae"
     } else if (i == 1) {
-      siteName <- "jmdc"
-    } else if (i == 2) {
       siteName <- "mdcd"
-    } else if (i == 3) {
+    } else if (i == 2) {
       siteName <- "optum"
-    } else if (i == 4) {
+    } else if (i == 3) {
       siteName <- "mdcr"
+    } else if (i == 4) {
+      siteName <- "jmdc"
     }
     print(paste("I am working on ",i,"-th site as local site.",sep = ""))
     newSite = (site - i) %% len_site # change site number (0,1,2,3,...,K) to (K-i+1,..,K,0,1,2,...,K-i),
     out <- compare.methods(Xall,Yall,newSite)
-    saveRDS(out, file.path(studyFolder, sprintf("output_ODAL_median_%s_%s.rds", outcomeName, siteName)))
+    if (!skipJmdc & !skipMdcr) {
+    postFix <- ""
+    } else if (skipJmdc & !skipMdcr) {
+      postFix <- "_noJmdc"
+    } else if (skipJmdc & skipMdcr) {
+      postFix <- "_noJmdcNorMdcr"
+    }
+    saveRDS(out, file.path(studyFolder, sprintf("output_ODAL_median_%s_%s%s.rds", outcomeName, siteName, postFix)))
   }
 }
 
