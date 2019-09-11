@@ -318,13 +318,17 @@ compare.methods = function(Xall, Yall, site){
 evaluateOdal <- function(studyFolder, outcomeId, skipJmdc = FALSE, splitMdcr = FALSE) {
   writeLines(paste("Evaluating outcome", outcomeId))
   skipJmdc <- TRUE
-  skipMdcr <- FALSE # Note: can only skip MDCR if also skipping JMDC
-  outcomeId <- 5 # 5 = AMI, 3 = stroke
+  skipMdcr <- TRUE # Note: can only skip MDCR if also skipping JMDC
+  outcomeId <- 3 # 5 = AMI, 3 = stroke
   data <- readRDS(file.path(studyFolder, sprintf("data_o%s.rds", outcomeId)))
 
   if (skipJmdc) {
     writeLines("Skipping JMDC")
     data <- data[data$database != "Jmdc", ]
+  }
+  if (skipMdcr) {
+    writeLines("Skipping MDCR")
+    data <- data[data$database != "mdcr", ]
   }
 
   data$age_in_years <- NULL

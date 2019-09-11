@@ -60,7 +60,8 @@ combineData <- function(studyFolder, dropColumns = FALSE, sampleSize = 100000) {
 }
 
 createSummary <- function(studyFolder) {
-  outcomeIds <- c(3, 4, 5, 6)
+  # outcomeIds <- c(3, 4, 5, 6)
+  outcomeIds <- c(3, 5)
   pathToCsv <- system.file("settings", "CohortsToCreate.csv", package = "DistributedRegressionEval")
   cohortsToCreate <- read.csv(pathToCsv)
   first <- TRUE
@@ -68,8 +69,14 @@ createSummary <- function(studyFolder) {
   require(dplyr)
   for (outcomeId in outcomeIds) {
     data <- readRDS(file.path(studyFolder, sprintf("data_o%s.rds", outcomeId)))
-    means <- data %>% select(-y) %>% group_by(database) %>% summarize_all(mean)
-    counts <- data %>% group_by(database) %>% summarize(n = n(), outcomes = sum(y))
+    means <- data %>% select(-y, -age_in_years, -time)  %>% group_by(database) %>% summarize_all(mean)
+    counts <- data %>% group_by(database) %>% summarize(n = n(),
+                                                        outcomes = sum(y),
+                                                        ageMin = min(age_in_years),
+                                                        age25 = quantile(age_in_years, 0.25),
+                                                        ageMedian = median(age_in_years),
+                                                        age75 = quantile(age_in_years, 0.25),
+                                                        ageMax = min(age_in_years))
     counts <- rename(counts, !!paste0("o_", outcomeId) := outcomes)
     if (first) {
       summaryStats <- inner_join(means, counts)
@@ -80,6 +87,7 @@ createSummary <- function(studyFolder) {
       summaryStats <- inner_join(summaryStats, counts %>% select(-n))
     }
   }
-  summaryStats <- summaryStats %>% select(database, n, o_3, o_4, o_5, o_6, everything())
+  # summaryStats <- summaryStats %>% select(database, n, o_3, o_4, o_5, o_6, everything())
+  summaryStats <- summaryStats %>% select(database, n, o_3,  o_5, everything())
   write.csv(t(summaryStats), file.path(studyFolder, "Summary.csv"))
 }
