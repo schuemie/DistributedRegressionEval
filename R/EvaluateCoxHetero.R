@@ -7,6 +7,9 @@
 ## Db.names <- c('ccae',	'Jmdc',	'mdcd',	'optum')
 ## please also specify the var names for (time, status,  X1, X2) in the script below
 ## output are .csv files of beta and var est, and also a pdf of cumulative hazards plot
+
+# Jdbc has convergence issue, can you use mdcr?
+Db.names <- c('ccae',	'mdcr',	'mdcd',	'optum')
 evaluateCoxHetero <- function(studyFolder, data, outcomeName){
   # the first 3 columns of the input data frame are: site id, time, status
   # and the rest are covariates (numeric)
@@ -26,35 +29,36 @@ evaluateCoxHetero <- function(studyFolder, data, outcomeName){
   # get localCox
   # also plot the cumulative hazard curve of each site
   pdf(file.path(studyFolder, sprintf('cumhaz_all_sites_%s.pdf', outcomeName)))
-  for(localDb in Db.names){
+  for(idb in 1:length(Db.names)){
+    localDb <- Db.names[idb]
     cat(localDb, '...\n')
     # Now don't need to transfer data frame to list
     localCox <- coxph(form, data[data$database == localDb, ])
-    # JDBC:
-    # Warning message:
-    # In fitter(X, Y, strats, offset, init, control, weights = weights,  :
-    #             Ran out of iterations and did not converge
 
     assign(paste0('localCox.', localDb), localCox)
     assign(paste0("n.", localDb), sum(data$database == localDb))
 
     ss <- survfit(localCox)
+    if(localDb==Db.names[1])
+      plot(ss$cumhaz ~ ss$time, type='l', xlab='time', ylab='cumhaz', main=outcomeName)
+    else
+      lines(ss$cumhaz~ ss$time, col=idb, lty=idb)
     # plot(ss, fun='cumhaz', main=paste0(localDb, ", cumulative hazard") )
-    #Error in slower[who, j] : subscript out of bounds
   }
+  legend(x=0.1*max(ss$time), y=0.9*max(ss$cumhaz), Db.names,
+         cex=.8, col=1:length(Db.names), lty=1:length(Db.names))
   dev.off()
 
 
   # get avgCox: inverse-variance (i.e. hessian) weighted est
-  var_avgCox <- solve(solve(localCox.ccae$var)+ solve(localCox.Jmdc$var) +
+  var_avgCox <- solve(solve(localCox.ccae$var)+ solve(localCox.mdcr$var) +
                         solve(localCox.mdcd$var) + solve(localCox.optum$var))
-  beta_avgCox <- var_avgCox %*% (solve(localCox.ccae$var, localCox.ccae$coef)+ solve(localCox.Jmdc$var, localCox.Jmdc$coef) +
-                          solve(localCox.mdcd$var,localCox.mdcd$coef) + solve(localCox.optum$var,localCox.optum$coef))
+  beta_avgCox <- var_avgCox %*% (solve(localCox.ccae$var, localCox.ccae$coef)+ solve(localCox.mdcr$var, localCox.mdcr$coef) +
+                                   solve(localCox.mdcd$var,localCox.mdcd$coef) + solve(localCox.optum$var,localCox.optum$coef))
 
   ## using each Db as Local and run DistCox
   ## now assume heterogeneous baseline hazards
   # Reformat data:
-
   sites <- unique(data$database)
   sites <- data.frame(database = sites,
                       id = 1:length(sites),
@@ -123,11 +127,11 @@ evaluateCoxHeteroAllOutcomes <- function(){
   data <- readRDS(file.path(studyFolder, sprintf("data_o%s.rds", outcomeId)))
 
   # Remove for stroke model:
-  if (outcomeId == 3) {
-    data$age_in_years <- NULL
-    data$`gender_=_FEMALE` <- NULL
-    data$Major_depressive_disorder <- NULL
-  }
+  # if (outcomeId == 3) {
+  #   data$age_in_years <- NULL
+  #   data$`gender_=_FEMALE` <- NULL
+  #   data$Major_depressive_disorder <- NULL
+  # }
 
   if (outcomeId == 5) {
     outcomeName <- "AMI"
