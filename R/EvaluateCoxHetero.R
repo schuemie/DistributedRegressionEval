@@ -162,10 +162,12 @@ evaluateCoxHeteroAllOutcomes <- function(){
   library(survival)
   studyFolder <- "r:/DistributedCoxHeteroEval"
 
-  outcomeId <- 3 # 3 = stroke, 5 = AMI
+  outcomeId <- 5 # 3 = stroke, 5 = AMI
   writeLines(paste("Evaluating outcome", outcomeId))
 
   data <- readRDS(file.path(studyFolder, sprintf("data_o%s.rds", outcomeId)))
+
+  data$age_in_years <- (data$age_in_years - 50) / 20
 
   # Remove for stroke model:
   # if (outcomeId == 3) {
