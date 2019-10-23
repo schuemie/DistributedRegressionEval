@@ -19,6 +19,7 @@ evaluateCoxHetero <- function(studyFolder, data, outcomeName){
   colnames(data) <- gsub("=", "", colnames(data))
   predictors <- colnames(data)
   predictors <- predictors[!(predictors %in% c("time", "y", "database"))]
+  px <- length(predictors)
   form <- as.formula(paste("Surv(time, y) ~", paste(predictors, collapse = " + ")))
 
   pooledCox <- coxph(form, data=data)
@@ -27,34 +28,74 @@ evaluateCoxHetero <- function(studyFolder, data, outcomeName){
   stratCox <- coxph(stratForm, data=data)
 
   # get localCox
-  # also plot the cumulative hazard curve of each site
-  pdf(file.path(studyFolder, sprintf('cumhaz_all_sites_%s.pdf', outcomeName)))
+  local.all <- list()
+  time.max <- H0.max <- 0
+  sum_inv_var <- matrix(0, px, px)
+  sum_inv_var_b <- rep(0, px)
+
   for(idb in 1:length(Db.names)){
     localDb <- Db.names[idb]
     cat(localDb, '...\n')
     # Now don't need to transfer data frame to list
     localCox <- coxph(form, data[data$database == localDb, ])
+    # prepare weighted est
+    sum_inv_var <- sum_inv_var + solve(localCox$var)
+    sum_inv_var_b <- sum_inv_var_b + solve(localCox$var, localCox$coef)
 
-    assign(paste0('localCox.', localDb), localCox)
-    assign(paste0("n.", localDb), sum(data$database == localDb))
+    local.all[[localDb]]$localCox <- localCox
+    local.all[[localDb]]$n.localDb <- sum(data$database == localDb)
+    # assign(paste0('localCox.', localDb), localCox)
+    # assign(paste0("n.", localDb), sum(data$database == localDb))
+    H0 <- basehaz(localCox, centered=FALSE)
+    local.all[[localDb]]$H0.localCox <- H0
+    time.max <- max(time.max, max(H0$time))
+    H0.max <- max(H0.max, max(H0$hazard))
 
-    ss <- survfit(localCox)
-    if(localDb==Db.names[1])
-      plot(ss$cumhaz ~ ss$time, type='l', xlab='time', ylab='cumhaz', main=outcomeName)
-    else
-      lines(ss$cumhaz~ ss$time, col=idb, lty=idb)
-    # plot(ss, fun='cumhaz', main=paste0(localDb, ", cumulative hazard") )
+    # set a common beta to calculate basehaz at each site, must be $coefficients, not $coef
+    localCox$coefficients <- stratCox$coef
+    H0 <- basehaz(localCox, centered=FALSE)
+    local.all[[localDb]]$H0.stratCox <- H0
+
+    # ss <- survfit(localCox)
   }
-  legend(x=0.1*max(ss$time), y=0.9*max(ss$cumhaz), Db.names,
+
+  # get avgCox: inverse-variance (i.e. hessian) weighted est
+  var_avgCox <- solve(sum_inv_var)
+  beta_avgCox <- var_avgCox %*% (sum_inv_var_b)
+
+
+  # plot the cumulative hazard curve of each site
+  pdf(file.path(studyFolder, sprintf('cumhaz_all_sites_localCox_%s.pdf', outcomeName)))
+  for(idb in 1:length(Db.names)){
+    localDb <- Db.names[idb]
+    if(localDb==Db.names[1])
+      plot(hazard ~ time, data=local.all[[localDb]]$H0.localCox, type='l',
+           xlim=c(0, time.max), ylim=c(0, H0.max),
+           xlab='time', ylab='cumhaz', main=paste0(outcomeName, ', beta_localCox') )
+    else
+      lines(hazard ~ time, data=local.all[[localDb]]$H0.localCox, col=idb, lty=idb)
+
+  }
+  legend('topleft', legend=Db.names,  # x=0.1*time.max, y=0.9*H0.max
          cex=.8, col=1:length(Db.names), lty=1:length(Db.names))
   dev.off()
 
 
-  # get avgCox: inverse-variance (i.e. hessian) weighted est
-  var_avgCox <- solve(solve(localCox.ccae$var)+ solve(localCox.mdcr$var) +
-                        solve(localCox.mdcd$var) + solve(localCox.optum$var))
-  beta_avgCox <- var_avgCox %*% (solve(localCox.ccae$var, localCox.ccae$coef)+ solve(localCox.mdcr$var, localCox.mdcr$coef) +
-                                   solve(localCox.mdcd$var,localCox.mdcd$coef) + solve(localCox.optum$var,localCox.optum$coef))
+  pdf(file.path(studyFolder, sprintf('cumhaz_all_sites_stratCox_%s.pdf', outcomeName)))
+  for(idb in 1:length(Db.names)){
+    localDb <- Db.names[idb]
+    if(localDb==Db.names[1])
+      plot(hazard ~ time, data=local.all[[localDb]]$H0.stratCox, type='l',
+           xlim=c(0, time.max), ylim=c(0, H0.max),
+           xlab='time', ylab='cumhaz', main=paste0(outcomeName, ', beta_stratCox'))
+    else
+      lines(hazard ~ time, data=local.all[[localDb]]$H0.stratCox, col=idb, lty=idb)
+  }
+  legend('topleft', legend=Db.names,  # x=0.1*time.max, y=0.9*H0.max
+         cex=.8, col=1:length(Db.names), lty=1:length(Db.names))
+  dev.off()
+
+
 
   ## using each Db as Local and run DistCox
   ## now assume heterogeneous baseline hazards
@@ -84,7 +125,7 @@ evaluateCoxHetero <- function(studyFolder, data, outcomeName){
                                        strat = T)
     # assign(paste0('distCoxAvgInit.H.', localDb), distCoxAvgInit.H)
 
-    tmp = rbind(get(paste0('localCox.', localDb))$coef,
+    tmp = rbind(local.all[[localDb]]$localCox$coef,
                 c(beta_avgCox),
                 c(distCoxAvgInit$beta_tilde1),
                 c(distCoxAvgInit$beta_tilde),
@@ -92,7 +133,7 @@ evaluateCoxHetero <- function(studyFolder, data, outcomeName){
                 c(distCoxAvgInit.H$beta_tilde),
                 pooledCox$coef,
                 stratCox$coef,
-                get(paste0("n.", localDb)))
+                local.all[[localDb]]$n.localDb)
     results <- data.frame(description = c("Local",
                                           "Meta",
                                           "ODAC1",
@@ -104,7 +145,7 @@ evaluateCoxHetero <- function(studyFolder, data, outcomeName){
                                           "sampleSize"), tmp)
     write.csv(results, file.path(studyFolder, sprintf("%s_beta_%s.csv", localDb, outcomeName)), row.names = FALSE)
 
-    res.var <- rbind(get(paste0('localCox.', localDb))$var,
+    res.var <- rbind(local.all[[localDb]]$localCox$var,
                      var_avgCox,
                      distCoxAvgInit$sol1$hessian,
                      distCoxAvgInit$sol$hessian,
