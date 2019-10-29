@@ -8,8 +8,10 @@
 ## please also specify the var names for (time, status,  X1, X2) in the script below
 ## output are .csv files of beta and var est, and also a pdf of cumulative hazards plot
 
-# Jdbc has convergence issue, can you use mdcr?
-Db.names <- c('ccae',	'mdcr',	'mdcd',	'optum')
+
+# use all 5 sites
+require(KernSmooth)
+Db.names <- c('ccae', 'Jmdc',		'mdcd',	'optum') # 'mdcr',
 evaluateCoxHetero <- function(studyFolder, data, outcomeName){
   # the first 3 columns of the input data frame are: site id, time, status
   # and the rest are covariates (numeric)
@@ -29,7 +31,7 @@ evaluateCoxHetero <- function(studyFolder, data, outcomeName){
 
   # get localCox
   local.all <- list()
-  time.max <- H0.max <- 0
+  time.max <- H0.max <- h0.max <- 0
   sum_inv_var <- matrix(0, px, px)
   sum_inv_var_b <- rep(0, px)
 
@@ -44,8 +46,7 @@ evaluateCoxHetero <- function(studyFolder, data, outcomeName){
 
     local.all[[localDb]]$localCox <- localCox
     local.all[[localDb]]$n.localDb <- sum(data$database == localDb)
-    # assign(paste0('localCox.', localDb), localCox)
-    # assign(paste0("n.", localDb), sum(data$database == localDb))
+    # cumulative baseline haz
     H0 <- basehaz(localCox, centered=FALSE)
     local.all[[localDb]]$H0.localCox <- H0
     time.max <- max(time.max, max(H0$time))
@@ -56,6 +57,20 @@ evaluateCoxHetero <- function(studyFolder, data, outcomeName){
     H0 <- basehaz(localCox, centered=FALSE)
     local.all[[localDb]]$H0.stratCox <- H0
 
+    # get baseline haz, keep h0 only at event times (h0=0 at censored times)
+    h0 <- diff(H0$hazard)
+    time0 <- H0$time
+    time0 <- time0[-length(time0)]
+    time0 = time0[h0!=0]
+    h0 = h0[h0!=0]
+
+    local.all[[localDb]]$h0 <- list(y=h0, x=time0)
+    # kernal smoothing h0
+    local.all[[localDb]]$h0.ks.20 <- ksmooth(time0, h0, bandwidth = 20)
+    local.all[[localDb]]$h0.ks.50 <- ksmooth(time0, h0, bandwidth = 50)
+    local.all[[localDb]]$h0.ks.normal <- ksmooth(time0, h0, bandwidth = 50, kernel = 'normal')
+    h0.max <- max(h0.max, max(h0))
+
     # ss <- survfit(localCox)
   }
 
@@ -65,33 +80,84 @@ evaluateCoxHetero <- function(studyFolder, data, outcomeName){
 
 
   # plot the cumulative hazard curve of each site
-  pdf(file.path(studyFolder, sprintf('cumhaz_all_sites_localCox_%s.pdf', outcomeName)))
+  # pdf(file.path(studyFolder, sprintf('cumhaz_all_sites_localCox_%s.pdf', outcomeName)))
+  # for(idb in 1:length(Db.names)){
+  #   localDb <- Db.names[idb]
+  #   if(localDb==Db.names[1])
+  #     plot(hazard ~ time, data=local.all[[localDb]]$H0.localCox, type='l',
+  #          xlim=c(0, time.max), ylim=c(0, H0.max),
+  #          xlab='time', ylab='cumhaz', main=paste0(outcomeName, ', beta_localCox') )
+  #   else
+  #     lines(hazard ~ time, data=local.all[[localDb]]$H0.localCox, col=idb, lty=idb)
+  #
+  # }
+  # legend('topleft', legend=Db.names,  # x=0.1*time.max, y=0.9*H0.max
+  #        cex=.8, col=1:length(Db.names), lty=1:length(Db.names))
+  # dev.off()
+
+  pdf(file.path(studyFolder, sprintf('basehaz_stratCox_%s.pdf', outcomeName)))
   for(idb in 1:length(Db.names)){
     localDb <- Db.names[idb]
     if(localDb==Db.names[1])
-      plot(hazard ~ time, data=local.all[[localDb]]$H0.localCox, type='l',
-           xlim=c(0, time.max), ylim=c(0, H0.max),
-           xlab='time', ylab='cumhaz', main=paste0(outcomeName, ', beta_localCox') )
+      # plot(hazard ~ time, data=local.all[[localDb]]$H0.stratCox, type='l',
+      #      xlim=c(0, time.max), ylim=c(0, H0.max),
+      #      xlab='time', ylab='cumhaz', main=paste0(outcomeName, ', beta_stratCox'))
+      plot(local.all[[localDb]]$h0$y ~ local.all[[localDb]]$h0$x, type='s',
+           xlim=c(0, time.max), ylim=c(0, h0.max),
+           xlab='time', ylab='baseline hazard', main=paste0(outcomeName, ', beta_stratCox'))
     else
-      lines(hazard ~ time, data=local.all[[localDb]]$H0.localCox, col=idb, lty=idb)
-
+      lines(local.all[[localDb]]$h0$y ~ local.all[[localDb]]$h0$x, type='s',
+            col=idb, lty=idb)
   }
-  legend('topleft', legend=Db.names,  # x=0.1*time.max, y=0.9*H0.max
+  legend('topleft', legend=Db.names,
          cex=.8, col=1:length(Db.names), lty=1:length(Db.names))
   dev.off()
 
-
-  pdf(file.path(studyFolder, sprintf('cumhaz_all_sites_stratCox_%s.pdf', outcomeName)))
+  ## ksmooth(bandwidth = 20), box kernel
+  pdf(file.path(studyFolder, sprintf('basehaz_ks20_stratCox_%s.pdf', outcomeName)))
   for(idb in 1:length(Db.names)){
     localDb <- Db.names[idb]
     if(localDb==Db.names[1])
-      plot(hazard ~ time, data=local.all[[localDb]]$H0.stratCox, type='l',
-           xlim=c(0, time.max), ylim=c(0, H0.max),
-           xlab='time', ylab='cumhaz', main=paste0(outcomeName, ', beta_stratCox'))
+      plot(local.all[[localDb]]$h0.ks.20$y ~ local.all[[localDb]]$h0.ks.20$x, type='l',
+           xlim=c(0, time.max), ylim=c(0, h0.max),
+           xlab='time', ylab='baseline hazard', main=paste0(outcomeName, ', beta_stratCox (ksmooth, bw=20)'))
     else
-      lines(hazard ~ time, data=local.all[[localDb]]$H0.stratCox, col=idb, lty=idb)
+      lines(local.all[[localDb]]$h0.ks.20$y ~ local.all[[localDb]]$h0.ks.20$x, type='l',
+            col=idb, lty=idb)
   }
-  legend('topleft', legend=Db.names,  # x=0.1*time.max, y=0.9*H0.max
+  legend('topleft', legend=Db.names,
+         cex=.8, col=1:length(Db.names), lty=1:length(Db.names))
+  dev.off()
+
+  ## ksmooth(bandwidth = 50)
+  pdf(file.path(studyFolder, sprintf('basehaz_ks50_stratCox_%s.pdf', outcomeName)))
+  for(idb in 1:length(Db.names)){
+    localDb <- Db.names[idb]
+    if(localDb==Db.names[1])
+      plot(local.all[[localDb]]$h0.ks.50$y ~ local.all[[localDb]]$h0.ks.50$x, type='l',
+           xlim=c(0, time.max), ylim=c(0, h0.max),
+           xlab='time', ylab='baseline hazard', main=paste0(outcomeName, ', beta_stratCox (ksmooth, bw=50)'))
+    else
+      lines(local.all[[localDb]]$h0.ks.50$y ~ local.all[[localDb]]$h0.ks.50$x, type='l',
+            col=idb, lty=idb) #
+  }
+  legend('topleft', legend=Db.names,
+         cex=.8, col=1:length(Db.names), lty=1:length(Db.names))
+  dev.off()
+
+  ## ksmooth(bandwidth = 50) using normal kernel
+  pdf(file.path(studyFolder, sprintf('basehaz_ks50_normal_stratCox_%s.pdf', outcomeName)))
+  for(idb in 1:length(Db.names)){
+    localDb <- Db.names[idb]
+    if(localDb==Db.names[1])
+      plot(local.all[[localDb]]$h0.ks.normal$y ~ local.all[[localDb]]$h0.ks.normal$x, type='l',
+           xlim=c(0, time.max), ylim=c(0, h0.max),
+           xlab='time', ylab='baseline hazard', main=paste0(outcomeName, ', beta_stratCox (ksmooth, bw=50, normal)'))
+    else
+      lines(local.all[[localDb]]$h0.ks.normal$y ~ local.all[[localDb]]$h0.ks.normal$x, type='l',
+            col=idb, lty=idb) #
+  }
+  legend('topleft', legend=Db.names,
          cex=.8, col=1:length(Db.names), lty=1:length(Db.names))
   dev.off()
 
@@ -158,31 +224,36 @@ evaluateCoxHetero <- function(studyFolder, data, outcomeName){
   }
 }
 
+
 evaluateCoxHeteroAllOutcomes <- function(){
   library(survival)
   studyFolder <- "r:/DistributedCoxHeteroEval"
+  pathToCsv <- system.file("settings", "KnownPredictors.csv", package = "DistributedRegressionEval")
+  outcomes <- read.csv(pathToCsv)
+  outcomes <- outcomes[!duplicated(outcomes$outcomeId), c("outcomeId", "outcomeName")]
 
-  outcomeId <- 5 # 3 = stroke, 5 = AMI
-  writeLines(paste("Evaluating outcome", outcomeId))
+  for (outcomeId in outcomes$outcomeId) {
+    # outcomeId <- 5 # 3 = stroke, 5 = AMI
+    outcomeName <- outcomes$outcomeName[outcomes$outcomeId == outcomeId]
+    writeLines(paste("Evaluating outcome", outcomeName))
 
-  data <- readRDS(file.path(studyFolder, sprintf("data_o%s.rds", outcomeId)))
+    data <- readRDS(file.path(studyFolder, sprintf("data_o%s.rds", outcomeId)))
 
-  data$age_in_years <- (data$age_in_years - 50) / 20
+    data$age_in_years <- (data$age_in_years - 50) / 20
 
-  # Remove for stroke model:
-  # if (outcomeId == 3) {
-  #   data$age_in_years <- NULL
-  #   data$`gender_=_FEMALE` <- NULL
-  #   data$Major_depressive_disorder <- NULL
-  # }
+    if (outcomeId == 3) {
+      data <- data[data$database != "Jmdc", ]
+    }
 
-  if (outcomeId == 5) {
-    outcomeName <- "AMI"
-  } else if (outcomeId == 3) {
-    outcomeName <- "stroke"
+    # Remove for stroke model:
+    # if (outcomeId == 3) {
+    #   data$age_in_years <- NULL
+    #   data$`gender_=_FEMALE` <- NULL
+    #   data$Major_depressive_disorder <- NULL
+    # }
+
+    evaluateCoxHetero(studyFolder, data, outcomeName)
   }
-  evaluateCoxHetero(studyFolder, data, outcomeName)
-
 }
 
 
