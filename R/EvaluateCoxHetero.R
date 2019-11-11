@@ -8,16 +8,43 @@
 ## please also specify the var names for (time, status,  X1, X2) in the script below
 ## output are .csv files of beta and var est, and also a pdf of cumulative hazards plot
 
-
-# use all 5 sites
 require(KernSmooth)
-Db.names <- c('ccae', 'Jmdc',		'mdcd',	'optum') # 'mdcr',
-evaluateCoxHetero <- function(studyFolder, data, outcomeName){
+Db.names <- c('ccae', 'mdcr',	'mdcd',	'optum') # 'Jmdc',
+evaluateCoxHetero <- function(studyFolder, data, outcomeName,
+                              sub.prop=1, sub.min=30){  # proportion of a subsample
   # the first 3 columns of the input data frame are: site id, time, status
   # and the rest are covariates (numeric)
+
   n.total <- nrow(data)
   Db.names <- unique(data$database)
 
+  ## randomly select a subsample of each site, require number of cases > sub.min
+  if(sub.prop < 1){
+    id.sub <- c()
+    for(idb in 1:length(Db.names)){
+      id.Db <- which(data$database == Db.names[idb])
+      if(sum(data$y[id.Db])*sub.prop < sub.min){
+        warning(paste0(Db.names[idb], ' too small to subsample, removed!'))
+        next
+      }
+      nsub <- round(length(id.Db)*sub.prop)
+      id.sub1 <- sample(id.Db, nsub, replace = F)
+      iss <- 1
+      while(sum(data$y[id.sub1]) < sub.min & iss < 10){
+        id.sub1 <- sample(id.Db, nsub, replace = F)
+        iss <- iss + 1
+      }
+      id.sub <- c(id.sub, id.sub1)
+    }
+    data <- data[id.sub,]
+  }
+
+  n.total <- nrow(data)
+  if (n.total == 0) {
+    warning("No data left after sampling. Terminating")
+    return()
+  }
+  Db.names <- unique(as.character(data$database))
   colnames(data) <- gsub("=", "", colnames(data))
   predictors <- colnames(data)
   predictors <- predictors[!(predictors %in% c("time", "y", "database"))]
@@ -224,7 +251,6 @@ evaluateCoxHetero <- function(studyFolder, data, outcomeName){
   }
 }
 
-
 evaluateCoxHeteroAllOutcomes <- function(){
   library(survival)
   studyFolder <- "r:/DistributedCoxHeteroEval"
@@ -233,7 +259,7 @@ evaluateCoxHeteroAllOutcomes <- function(){
   outcomes <- outcomes[!duplicated(outcomes$outcomeId), c("outcomeId", "outcomeName")]
 
   for (outcomeId in outcomes$outcomeId) {
-    # outcomeId <- 5 # 3 = stroke, 5 = AMI
+    # outcomeId <- 6 # 3 = stroke, 5 = AMI
     outcomeName <- outcomes$outcomeName[outcomes$outcomeId == outcomeId]
     writeLines(paste("Evaluating outcome", outcomeName))
 
@@ -241,9 +267,9 @@ evaluateCoxHeteroAllOutcomes <- function(){
 
     data$age_in_years <- (data$age_in_years - 50) / 20
 
-    if (outcomeId == 3) {
+    # if (outcomeId == 3 | outcomeId == 6) {
       data <- data[data$database != "Jmdc", ]
-    }
+    # }
 
     # Remove for stroke model:
     # if (outcomeId == 3) {
@@ -252,7 +278,9 @@ evaluateCoxHeteroAllOutcomes <- function(){
     #   data$Major_depressive_disorder <- NULL
     # }
 
-    evaluateCoxHetero(studyFolder, data, outcomeName)
+    evaluateCoxHetero(studyFolder, data, outcomeName, sub.prop = 0.1, sub.min =30)
+    evaluateCoxHetero(studyFolder, data, outcomeName, sub.prop = 0.2, sub.min =30)
+    evaluateCoxHetero(studyFolder, data, outcomeName, sub.prop = 0.3, sub.min =30)
   }
 }
 
