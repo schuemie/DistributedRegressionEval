@@ -278,9 +278,9 @@ evaluateCoxHeteroAllOutcomes <- function(){
     #   data$Major_depressive_disorder <- NULL
     # }
 
-    evaluateCoxHetero(studyFolder, data, outcomeName, sub.prop = 0.1, sub.min =30)
-    evaluateCoxHetero(studyFolder, data, outcomeName, sub.prop = 0.2, sub.min =30)
-    evaluateCoxHetero(studyFolder, data, outcomeName, sub.prop = 0.3, sub.min =30)
+    evaluateCoxHetero(file.path(studyFolder, "subProp01"), data, outcomeName, sub.prop = 0.1, sub.min =30)
+    evaluateCoxHetero(file.path(studyFolder, "subProp02"), data, outcomeName, sub.prop = 0.2, sub.min =30)
+    evaluateCoxHetero(file.path(studyFolder, "subProp03"), data, outcomeName, sub.prop = 0.3, sub.min =30)
   }
 }
 
