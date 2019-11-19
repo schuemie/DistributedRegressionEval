@@ -14,20 +14,22 @@ evaluateCoxHetero <- function(studyFolder, data, outcomeName,
                               sub.prop=1, sub.min=30){  # proportion of a subsample
   # the first 3 columns of the input data frame are: site id, time, status
   # and the rest are covariates (numeric)
-
   n.total <- nrow(data)
   Db.names <- unique(data$database)
-
   ## randomly select a subsample of each site, require number of cases > sub.min
+  tab.site.case <- matrix(NA, length(Db.names), 3)
   if(sub.prop < 1){
     id.sub <- c()
     for(idb in 1:length(Db.names)){
       id.Db <- which(data$database == Db.names[idb])
-      if(sum(data$y[id.Db])*sub.prop < sub.min){
-        warning(paste0(Db.names[idb], ' too small to subsample, removed!'))
-        next
-      }
-      nsub <- round(length(id.Db)*sub.prop)
+      tab.site.case[idb, ] <- c(Db.names[idb], sum(data$y[id.Db]), length(id.Db))
+      # if(sum(data$y[id.Db])*sub.prop < sub.min){
+      #   warning(paste0(Db.names[idb], ' too small to subsample, removed!'))
+      #   next
+      # }
+      # nsub <- round(length(id.Db)*sub.prop)
+      ## sub.prop adaptive for each site so that the avg sampled cases in each site is sub.min
+      nsub <- round(length(id.Db)* sub.min / sum(data$y[id.Db]) )
       id.sub1 <- sample(id.Db, nsub, replace = F)
       iss <- 1
       while(sum(data$y[id.sub1]) < sub.min & iss < 10){
@@ -38,6 +40,9 @@ evaluateCoxHetero <- function(studyFolder, data, outcomeName,
     }
     data <- data[id.sub,]
   }
+  colnames(tab.site.case) <- c(outcomeName, 'n.cases', 'n.subjects')
+  print(tab.site.case)
+  write.csv(tab.site.case, file.path(studyFolder, sprintf("tab.site.case_%s.csv", outcomeName)), row.names = FALSE)
 
   n.total <- nrow(data)
   if (n.total == 0) {
@@ -50,18 +55,15 @@ evaluateCoxHetero <- function(studyFolder, data, outcomeName,
   predictors <- predictors[!(predictors %in% c("time", "y", "database"))]
   px <- length(predictors)
   form <- as.formula(paste("Surv(time, y) ~", paste(predictors, collapse = " + ")))
-
   pooledCox <- coxph(form, data=data)
   ## stratified Cox will be used as golden standard
   stratForm <- as.formula(paste("Surv(time, y) ~", paste(predictors, collapse = " + "), "+ strata(database)"))
   stratCox <- coxph(stratForm, data=data)
-
   # get localCox
   local.all <- list()
   time.max <- H0.max <- h0.max <- 0
   sum_inv_var <- matrix(0, px, px)
   sum_inv_var_b <- rep(0, px)
-
   for(idb in 1:length(Db.names)){
     localDb <- Db.names[idb]
     cat(localDb, '...\n')
@@ -70,7 +72,6 @@ evaluateCoxHetero <- function(studyFolder, data, outcomeName,
     # prepare weighted est
     sum_inv_var <- sum_inv_var + solve(localCox$var)
     sum_inv_var_b <- sum_inv_var_b + solve(localCox$var, localCox$coef)
-
     local.all[[localDb]]$localCox <- localCox
     local.all[[localDb]]$n.localDb <- sum(data$database == localDb)
     # cumulative baseline haz
@@ -78,34 +79,27 @@ evaluateCoxHetero <- function(studyFolder, data, outcomeName,
     local.all[[localDb]]$H0.localCox <- H0
     time.max <- max(time.max, max(H0$time))
     H0.max <- max(H0.max, max(H0$hazard))
-
     # set a common beta to calculate basehaz at each site, must be $coefficients, not $coef
     localCox$coefficients <- stratCox$coef
     H0 <- basehaz(localCox, centered=FALSE)
     local.all[[localDb]]$H0.stratCox <- H0
-
     # get baseline haz, keep h0 only at event times (h0=0 at censored times)
     h0 <- diff(H0$hazard)
     time0 <- H0$time
     time0 <- time0[-length(time0)]
     time0 = time0[h0!=0]
     h0 = h0[h0!=0]
-
     local.all[[localDb]]$h0 <- list(y=h0, x=time0)
     # kernal smoothing h0
     local.all[[localDb]]$h0.ks.20 <- ksmooth(time0, h0, bandwidth = 20)
     local.all[[localDb]]$h0.ks.50 <- ksmooth(time0, h0, bandwidth = 50)
     local.all[[localDb]]$h0.ks.normal <- ksmooth(time0, h0, bandwidth = 50, kernel = 'normal')
     h0.max <- max(h0.max, max(h0))
-
     # ss <- survfit(localCox)
   }
-
   # get avgCox: inverse-variance (i.e. hessian) weighted est
   var_avgCox <- solve(sum_inv_var)
   beta_avgCox <- var_avgCox %*% (sum_inv_var_b)
-
-
   # plot the cumulative hazard curve of each site
   # pdf(file.path(studyFolder, sprintf('cumhaz_all_sites_localCox_%s.pdf', outcomeName)))
   # for(idb in 1:length(Db.names)){
@@ -121,7 +115,6 @@ evaluateCoxHetero <- function(studyFolder, data, outcomeName,
   # legend('topleft', legend=Db.names,  # x=0.1*time.max, y=0.9*H0.max
   #        cex=.8, col=1:length(Db.names), lty=1:length(Db.names))
   # dev.off()
-
   pdf(file.path(studyFolder, sprintf('basehaz_stratCox_%s.pdf', outcomeName)))
   for(idb in 1:length(Db.names)){
     localDb <- Db.names[idb]
@@ -139,7 +132,6 @@ evaluateCoxHetero <- function(studyFolder, data, outcomeName,
   legend('topleft', legend=Db.names,
          cex=.8, col=1:length(Db.names), lty=1:length(Db.names))
   dev.off()
-
   ## ksmooth(bandwidth = 20), box kernel
   pdf(file.path(studyFolder, sprintf('basehaz_ks20_stratCox_%s.pdf', outcomeName)))
   for(idb in 1:length(Db.names)){
@@ -155,7 +147,6 @@ evaluateCoxHetero <- function(studyFolder, data, outcomeName,
   legend('topleft', legend=Db.names,
          cex=.8, col=1:length(Db.names), lty=1:length(Db.names))
   dev.off()
-
   ## ksmooth(bandwidth = 50)
   pdf(file.path(studyFolder, sprintf('basehaz_ks50_stratCox_%s.pdf', outcomeName)))
   for(idb in 1:length(Db.names)){
@@ -171,7 +162,6 @@ evaluateCoxHetero <- function(studyFolder, data, outcomeName,
   legend('topleft', legend=Db.names,
          cex=.8, col=1:length(Db.names), lty=1:length(Db.names))
   dev.off()
-
   ## ksmooth(bandwidth = 50) using normal kernel
   pdf(file.path(studyFolder, sprintf('basehaz_ks50_normal_stratCox_%s.pdf', outcomeName)))
   for(idb in 1:length(Db.names)){
@@ -187,9 +177,6 @@ evaluateCoxHetero <- function(studyFolder, data, outcomeName,
   legend('topleft', legend=Db.names,
          cex=.8, col=1:length(Db.names), lty=1:length(Db.names))
   dev.off()
-
-
-
   ## using each Db as Local and run DistCox
   ## now assume heterogeneous baseline hazards
   # Reformat data:
@@ -202,14 +189,12 @@ evaluateCoxHetero <- function(studyFolder, data, outcomeName,
   for (localId in sites$id) {
     localDb <- sites$database[sites$id == localId]
     cat(localDb, '...\n')
-
     # proposed DistCox, assume common baseline hazards (this is already studied...)
     distCoxAvgInit <- ODACO::DistCox(mydata = reformData,
                                      id.local = localId,
                                      init_est = beta_avgCox,
                                      output.ODACO1 = T,
                                      strat = F)
-
     # proposed DistCox, assume heterogeneous baseline hazards
     distCoxAvgInit.H <- ODACO::DistCox(mydata = reformData,
                                        id.local = localId,
@@ -217,7 +202,6 @@ evaluateCoxHetero <- function(studyFolder, data, outcomeName,
                                        output.ODACO1 = T,
                                        strat = T)
     # assign(paste0('distCoxAvgInit.H.', localDb), distCoxAvgInit.H)
-
     tmp = rbind(local.all[[localDb]]$localCox$coef,
                 c(beta_avgCox),
                 c(distCoxAvgInit$beta_tilde1),
@@ -237,7 +221,6 @@ evaluateCoxHetero <- function(studyFolder, data, outcomeName,
                                           "stratCox",
                                           "sampleSize"), tmp)
     write.csv(results, file.path(studyFolder, sprintf("%s_beta_%s.csv", localDb, outcomeName)), row.names = FALSE)
-
     res.var <- rbind(local.all[[localDb]]$localCox$var,
                      var_avgCox,
                      distCoxAvgInit$sol1$hessian,
@@ -246,10 +229,10 @@ evaluateCoxHetero <- function(studyFolder, data, outcomeName,
                      distCoxAvgInit.H$sol$hessian,
                      pooledCox$var,
                      stratCox$var )
-
     write.csv(res.var, file.path(studyFolder, sprintf("%s_var_%s.csv", localDb, outcomeName)), row.names = FALSE)
   }
 }
+
 
 evaluateCoxHeteroAllOutcomes <- function(){
   library(survival)
@@ -268,7 +251,7 @@ evaluateCoxHeteroAllOutcomes <- function(){
     data$age_in_years <- (data$age_in_years - 50) / 20
 
     # if (outcomeId == 3 | outcomeId == 6) {
-      data <- data[data$database != "Jmdc", ]
+    data <- data[data$database != "Jmdc", ]
     # }
 
     # Remove for stroke model:
@@ -278,9 +261,13 @@ evaluateCoxHeteroAllOutcomes <- function(){
     #   data$Major_depressive_disorder <- NULL
     # }
 
-    evaluateCoxHetero(file.path(studyFolder, "subProp01"), data, outcomeName, sub.prop = 0.1, sub.min =30)
-    evaluateCoxHetero(file.path(studyFolder, "subProp02"), data, outcomeName, sub.prop = 0.2, sub.min =30)
-    evaluateCoxHetero(file.path(studyFolder, "subProp03"), data, outcomeName, sub.prop = 0.3, sub.min =30)
+    if (outcomeId == 4) {
+      data$Endocarditis <- NULL
+    }
+
+    evaluateCoxHetero(file.path(studyFolder, "subProp01"), data, outcomeName, sub.prop = 0.1, sub.min =20)
+    evaluateCoxHetero(file.path(studyFolder, "subProp02"), data, outcomeName, sub.prop = 0.1, sub.min =15)
+    evaluateCoxHetero(file.path(studyFolder, "subProp03"), data, outcomeName, sub.prop = 0.1, sub.min =10)
   }
 }
 
