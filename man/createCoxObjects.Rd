@@ -4,9 +4,14 @@
 \alias{createCoxObjects}
 \title{Create the Cox objects}
 \usage{
-createCoxObjects(connectionDetails, cdmDatabaseSchema,
-  cohortDatabaseSchema, cohortTable = "cohort", oracleTempSchema,
-  outputFolder)
+createCoxObjects(
+  connectionDetails,
+  cdmDatabaseSchema,
+  cohortDatabaseSchema,
+  cohortTable = "cohort",
+  oracleTempSchema,
+  outputFolder
+)
 }
 \arguments{
 \item{connectionDetails}{An object of type \code{connectionDetails} as created using the

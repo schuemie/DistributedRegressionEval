@@ -4,9 +4,14 @@
 \alias{createPlpObjects}
 \title{Create the PLP objects}
 \usage{
-createPlpObjects(connectionDetails, cdmDatabaseSchema,
-  cohortDatabaseSchema, cohortTable = "cohort", oracleTempSchema,
-  outputFolder)
+createPlpObjects(
+  connectionDetails,
+  cdmDatabaseSchema,
+  cohortDatabaseSchema,
+  cohortTable = "cohort",
+  oracleTempSchema,
+  outputFolder
+)
 }
 \arguments{
 \item{connectionDetails}{An object of type \code{connectionDetails} as created using the
