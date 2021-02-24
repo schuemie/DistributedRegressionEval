@@ -64,7 +64,7 @@ meta.mega <- function(df, id = "id", group = "group", response = "response") {
   meta.b <-  c(meta.tmp%*% solve(var.tmp))
   meta.se <- c(diag(sqrt(solve(var.tmp))))
 
-  meta.p <- sapply(meta.b/meta.se, pnorm, lower.tail = FALSE)*2
+  meta.p <- sapply(meta.b/meta.se, pnorm, lower.tail = TRUE)
 
   meta.out <- data.frame(Estimate = meta.b,
                          Std.Error = meta.se, Pvalue = meta.p,
